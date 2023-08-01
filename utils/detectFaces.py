@@ -76,7 +76,7 @@ def main():
     print("Video statistics: ", video.width, video.height, video.resolution, video.fps)
     frames = [Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)) for frame in video]
     print('Number of frames in video: ', len(frames))
-    fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, flip_input=False)
+    fa = face_alignment.FaceAlignment(face_alignment.LandmarksType.TWO_D, flip_input=False)
 
     for i, frame in enumerate(frames):
         print('\rTracking frame: {}'.format(i + 1), end='')

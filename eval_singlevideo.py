@@ -25,22 +25,17 @@ from torch.utils import data
 import warnings
 warnings.filterwarnings("ignore")
 
-
-parser = argparse.ArgumentParser()
-parser.add_argument(
-    "-c", "--conf_dir", default="exp/vox2_10w_frcnn2_64_64_3_adamw_1e-1_blocks16_pretrain/conf.yml",
-    help="Full path to save best validation model"
-)
-
-def main(conf):
+def evaluate(audio_path, mouth_path, save_path, num_of_speakers, device):
+    with open("local/lrs2_conf.yml") as f:
+        conf = yaml.safe_load(f)
     conf["exp_dir"] = os.path.join(
         "exp", conf["log"]["exp_name"])
     conf["audionet"].update({"n_src": 1})
 
     model_path = os.path.join(conf["exp_dir"], "checkpoints/last.ckpt")
-    model_path = "exp/vox2_10w_frcnn2_64_64_3_adamw_1e-1_blocks16_pretrain/best_model.pth"
+    model_path = "local/vox2_best_model.pt"
     sample_rate = conf["data"]["sample_rate"]
-    audiomodel = CTCNet(sample_rate=sample_rate, **conf["audionet"])
+    audiomodel = CTCNet(sample_rate=sample_rate, **conf["audionet"], device=device)
     ckpt = torch.load(model_path, map_location="cpu")['state_dict']
     audiomodel.load_state_dict(ckpt)
     videomodel = VideoModel(**conf["videonet"])
@@ -54,33 +49,31 @@ def main(conf):
 
     # Randomly choose the indexes of sentences to save.
     torch.no_grad().__enter__()
-    for idx in range(1, 2):
-        spk, sr = sf.read("test_videos/interview/interview.wav", dtype="float32")
-        mouth = get_preprocessing_pipelines()["val"](np.load("test_videos/interview/mouthroi/speaker{}.npz".format(idx))["data"])
-        key = "spk{}".format(idx)
-        
-        # Forward the network on the mixture.
-        target_mouths = torch.from_numpy(mouth).to(model_device)
-        mix = torch.from_numpy(spk).to(model_device)
-        # import pdb; pdb.set_trace()
-        mouth_emb = videomodel(target_mouths.unsqueeze(0).unsqueeze(1).float())
-        est_sources = audiomodel(mix[None, None], mouth_emb)
+    # for idx in range(1, num_of_speakers+1):
+    spk, sr = sf.read(audio_path, dtype="float32")
+    mouth = get_preprocessing_pipelines()["val"](np.load(mouth_path)["data"])
+    
+    # Forward the network on the mixture.
+    target_mouths = torch.from_numpy(mouth).to(model_device)
+    mix = torch.from_numpy(spk).to(model_device)
+    # import pdb; pdb.set_trace()
+    mouth_emb = videomodel(target_mouths.unsqueeze(0).unsqueeze(1).float())
+    est_sources = audiomodel(mix[None, None], mouth_emb)
 
-        gt_dir = "./test/sep_result"
-        os.makedirs(gt_dir, exist_ok=True)
-        # import pdb; pdb.set_trace()
-        sf.write(os.path.join(gt_dir, key+".wav"), est_sources.squeeze(0).squeeze(0).cpu().numpy(), 16000)
-        # import pdb; pdb.set_trace()
+    # gt_dir = save_path
+    # import pdb; pdb.set_trace()
+    sf.write(save_path, est_sources.squeeze(0).squeeze(0).cpu().numpy(), 16000)
+        # import pdb; pdb.set_trace()s
 
 
-if __name__ == "__main__":
-    from nichang.utils.parser_utils import prepare_parser_from_dict, parse_args_as_dict
+# if __name__ == "__main__":
+#     from nichang.utils.parser_utils import prepare_parser_from_dict, parse_args_as_dict
 
-    args = parser.parse_args()
+#     args = parser.parse_args()
 
-    with open(args.conf_dir) as f:
-        def_conf = yaml.safe_load(f)
+#     with open("local/lrs2_conf.yml") as f:
+#         def_conf = yaml.safe_load(f)
 
-    arg_dic = parse_args_as_dict(parser)
-    def_conf.update(arg_dic['main_args'])
-    main(def_conf)
+#     arg_dic = parse_args_as_dict(parser)
+#     def_conf.update(arg_dic['main_args'])
+#     main(def_conf)

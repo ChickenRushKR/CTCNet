@@ -1,1 +1,10 @@
 *.pyc
+*.png
+*.txt
+*.npz
+*.mp4
+*.csv
+*.wav
+*.tar
+*.tflite
+*.torch
